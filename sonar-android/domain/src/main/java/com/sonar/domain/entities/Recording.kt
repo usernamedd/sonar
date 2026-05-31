@@ -14,14 +14,36 @@ data class Recording(
     val sampleRate: Int = 44100,
     val format: AudioFormat = AudioFormat.AAC,
     val createdAt: Long = System.currentTimeMillis(),
-    val metadata: RecordingMetadata = RecordingMetadata()
+    val metadata: RecordingMetadata = RecordingMetadata(),
+    val transcript: String? = null,
+    val analysisResult: AnalysisResult? = null
+)
+
+data class AnalysisResult(
+    val coreQuestion: String,
+    val background: String,
+    val solutions: List<Solution>,
+    val rawLLMResponse: String? = null
+)
+
+data class Solution(
+    val title: String,
+    val summary: String,
+    val url: String? = null
 )
 
 enum class RecordingStatus {
     IDLE,
     RECORDING,
     PAUSED,
-    STOPPED
+    STOPPED,
+    TRANSCRIBING,
+    TRANSCRIBED,
+    ANALYZING,
+    ANALYZED,
+    SEARCHING,
+    COMPLETED,
+    FAILED
 }
 
 enum class AudioFormat {
