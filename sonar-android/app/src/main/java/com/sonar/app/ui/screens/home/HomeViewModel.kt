@@ -30,11 +30,11 @@ sealed class HomeEvent {
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val startRecording: StartRecordingUseCase,
-    private val stopRecording: StopRecordingUseCase,
-    private val getRecordings: GetRecordingsUseCase,
-    private val deleteRecording: DeleteRecordingUseCase,
-    private val analyzeRecording: AnalyzeRecordingUseCase
+    private val startRecordingUseCase: StartRecordingUseCase,
+    private val stopRecordingUseCase: StopRecordingUseCase,
+    private val getRecordingsUseCase: GetRecordingsUseCase,
+    private val deleteRecordingUseCase: DeleteRecordingUseCase,
+    private val analyzeRecordingUseCase: AnalyzeRecordingUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -46,7 +46,7 @@ class HomeViewModel @Inject constructor(
 
     private fun observeRecordings() {
         viewModelScope.launch {
-            getRecordings.observe().collect { recordings ->
+            getRecordingsUseCase.observe().collect { recordings ->
                 _uiState.update { it.copy(recordings = recordings) }
             }
         }
@@ -67,7 +67,7 @@ class HomeViewModel @Inject constructor(
     fun startRecording() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val result = startRecording()
+            val result = startRecordingUseCase()
             _uiState.update { it.copy(isLoading = false) }
             onEvent(HomeEvent.StartRecording(result))
         }
@@ -77,7 +77,7 @@ class HomeViewModel @Inject constructor(
         val currentId = _uiState.value.currentRecordingId ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val result = stopRecording(currentId)
+            val result = stopRecordingUseCase(currentId)
             _uiState.update { it.copy(isLoading = false, currentRecordingId = null) }
             onEvent(HomeEvent.StopRecording(result))
         }
@@ -87,7 +87,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val recordings = getRecordings()
+                val recordings = getRecordingsUseCase()
                 _uiState.update { it.copy(recordings = recordings, isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message, isLoading = false) }
@@ -97,14 +97,14 @@ class HomeViewModel @Inject constructor(
 
     private fun delete(id: UUID) {
         viewModelScope.launch {
-            deleteRecording(id)
+            deleteRecordingUseCase(id)
         }
     }
 
     private fun analyze(id: UUID) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val result = analyzeRecording(id)
+            val result = analyzeRecordingUseCase(id)
             _uiState.update { it.copy(isLoading = false, error = result.exceptionOrNull()?.message) }
         }
     }

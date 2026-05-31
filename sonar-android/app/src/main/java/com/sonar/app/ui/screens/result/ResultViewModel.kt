@@ -19,8 +19,8 @@ data class ResultUiState(
 
 @HiltViewModel
 class ResultViewModel @Inject constructor(
-    private val getRecordings: GetRecordingsUseCase,
-    private val analyzeRecording: AnalyzeRecordingUseCase
+    private val getRecordingsUseCase: GetRecordingsUseCase,
+    private val analyzeRecordingUseCase: AnalyzeRecordingUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ResultUiState())
@@ -29,7 +29,7 @@ class ResultViewModel @Inject constructor(
     fun loadRecording(id: UUID) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val recording = getRecordings.findAll().find { it.id == id }
+            val recording = getRecordingsUseCase().find { it.id == id }
             if (recording != null) {
                 _uiState.update { it.copy(recording = recording, isLoading = false) }
             } else {
@@ -42,7 +42,7 @@ class ResultViewModel @Inject constructor(
         val id = _uiState.value.recording?.id ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val result = analyzeRecording(id)
+            val result = analyzeRecordingUseCase(id)
             _uiState.update {
                 it.copy(
                     isLoading = false,

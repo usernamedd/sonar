@@ -2,41 +2,32 @@ package com.sonar.app.di
 
 import android.content.Context
 import androidx.room.Room
-import com.sonar.data.audio.AudioPlayer
-import com.sonar.data.audio.AudioRecorder
+import com.sonar.data.llm.GeminiLlmAdapter
 import com.sonar.data.local.SonarDatabase
 import com.sonar.data.local.dao.RecordingDao
-import com.sonar.data.remote.llm.GeminiLlmAdapter
-import com.sonar.data.remote.search.SolutionSearchAdapter
-import com.sonar.data.remote.stt.WhisperSttAdapter
 import com.sonar.data.repository.RecordingRepositoryImpl
+import com.sonar.data.search.SolutionSearchAdapter
+import com.sonar.data.stt.WhisperSttAdapter
+import com.sonar.data.audio.AudioRecorderAdapter
+import com.sonar.domain.GeminiApiKey
+import com.sonar.domain.SearchApiKey
+import com.sonar.domain.WhisperApiKey
+import com.sonar.domain.ports.AudioRecorderPort
+import com.sonar.domain.ports.LlmPort
+import com.sonar.domain.ports.SearchPort
+import com.sonar.domain.ports.SttPort
 import com.sonar.domain.repositories.RecordingRepository
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import io.ktor.client.*
-import io.ktor.client.engine.android.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.serialization.json.Json
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
-
-    @Provides
-    @Singleton
-    fun provideHttpClient(): HttpClient = HttpClient(Android) {
-        install(ContentNegotiation) {
-            json(Json {
-                ignoreUnknownKeys = true
-                isLenient = true
-            })
-        }
-    }
 
     @Provides
     @Singleton
@@ -56,37 +47,41 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideRecordingRepository(dao: RecordingDao): RecordingRepository {
-        return RecordingRepositoryImpl(dao)
-    }
+    @WhisperApiKey
+    fun provideWhisperApiKey(): String = System.getenv("WHISPER_API_KEY") ?: ""
 
     @Provides
     @Singleton
-    fun provideAudioRecorder(@ApplicationContext context: Context): AudioRecorder {
-        return AudioRecorder(context)
-    }
+    @GeminiApiKey
+    fun provideGeminiApiKey(): String = System.getenv("GEMINI_API_KEY") ?: ""
 
     @Provides
     @Singleton
-    fun provideAudioPlayer(@ApplicationContext context: Context): AudioPlayer {
-        return AudioPlayer(context)
-    }
+    @SearchApiKey
+    fun provideSearchApiKey(): String = System.getenv("SEARCH_API_KEY") ?: ""
+}
 
-    @Provides
-    @Singleton
-    fun provideWhisperSttAdapter(httpClient: HttpClient): WhisperSttAdapter {
-        return WhisperSttAdapter(httpClient)
-    }
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class AdapterModule {
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideGeminiLlmAdapter(httpClient: HttpClient): GeminiLlmAdapter {
-        return GeminiLlmAdapter(httpClient)
-    }
+    abstract fun bindRecordingRepository(impl: RecordingRepositoryImpl): RecordingRepository
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideSolutionSearchAdapter(httpClient: HttpClient): SolutionSearchAdapter {
-        return SolutionSearchAdapter(httpClient)
-    }
+    abstract fun bindAudioRecorderPort(impl: AudioRecorderAdapter): AudioRecorderPort
+
+    @Binds
+    @Singleton
+    abstract fun bindSttPort(impl: WhisperSttAdapter): SttPort
+
+    @Binds
+    @Singleton
+    abstract fun bindLlmPort(impl: GeminiLlmAdapter): LlmPort
+
+    @Binds
+    @Singleton
+    abstract fun bindSearchPort(impl: SolutionSearchAdapter): SearchPort
 }

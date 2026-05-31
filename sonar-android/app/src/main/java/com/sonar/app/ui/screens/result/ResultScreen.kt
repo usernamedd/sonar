@@ -13,8 +13,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sonar.domain.entities.Recording
-import com.sonar.domain.entities.RecordingStatus
 import com.sonar.domain.entities.Solution
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +80,6 @@ private fun AnalysisContent(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Core Question
         item {
             SectionCard(
                 title = "核心问题",
@@ -94,7 +93,6 @@ private fun AnalysisContent(
             }
         }
 
-        // Background
         item {
             SectionCard(
                 title = "背景上下文",
@@ -109,7 +107,6 @@ private fun AnalysisContent(
             }
         }
 
-        // Solutions
         item {
             Text(
                 text = "解决方案",
@@ -188,10 +185,10 @@ private fun SolutionCard(solution: Solution) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            if (solution.url != null) {
+            solution.url?.let { url ->
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = solution.url,
+                    text = url,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -199,5 +196,3 @@ private fun SolutionCard(solution: Solution) {
         }
     }
 }
-
-import java.util.UUID

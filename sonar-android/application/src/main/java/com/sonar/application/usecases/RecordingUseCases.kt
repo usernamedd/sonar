@@ -1,15 +1,13 @@
 package com.sonar.application.usecases
 
-import com.sonar.application.ports.inbound.*
-import com.sonar.data.audio.AudioRecorder
-import com.sonar.data.audio.RecordingResult
-import com.sonar.data.remote.llm.GeminiLlmAdapter
-import com.sonar.data.remote.search.SolutionSearchAdapter
-import com.sonar.data.remote.stt.WhisperSttAdapter
+import com.sonar.domain.GeminiApiKey
+import com.sonar.domain.SearchApiKey
+import com.sonar.domain.WhisperApiKey
 import com.sonar.domain.entities.Recording
 import com.sonar.domain.entities.RecordingStatus
+import com.sonar.domain.entities.Solution
+import com.sonar.domain.ports.*
 import com.sonar.domain.repositories.RecordingRepository
-import kotlinx.coroutines.flow.Flow
 import java.util.UUID
 import javax.inject.Inject
 
@@ -17,7 +15,7 @@ import javax.inject.Inject
 
 class StartRecordingUseCase @Inject constructor(
     private val repository: RecordingRepository,
-    private val audioRecorder: AudioRecorder
+    private val audioRecorder: AudioRecorderPort
 ) {
     suspend operator fun invoke(): Result<Recording> {
         return audioRecorder.startRecording().map { filePath ->
@@ -33,20 +31,19 @@ class StartRecordingUseCase @Inject constructor(
 
 class StopRecordingUseCase @Inject constructor(
     private val repository: RecordingRepository,
-    private val audioRecorder: AudioRecorder
+    private val audioRecorder: AudioRecorderPort
 ) {
     suspend operator fun invoke(recordingId: UUID): Result<Recording> {
         val recording = repository.findById(recordingId)
             ?: return Result.failure(IllegalArgumentException("Recording not found"))
 
-        return audioRecorder.stopRecording().map { result: RecordingResult ->
-            val updated = recording.copy(
-                status = RecordingStatus.STOPPED,
-                duration = result.duration
-            )
-            repository.save(updated)
-            updated
-        }
+        val result = audioRecorder.stopRecording()
+        val updated = recording.copy(
+            status = RecordingStatus.STOPPED,
+            duration = result.duration
+        )
+        repository.save(updated)
+        return Result.success(updated)
     }
 }
 
@@ -54,8 +51,7 @@ class GetRecordingsUseCase @Inject constructor(
     private val repository: RecordingRepository
 ) {
     suspend operator fun invoke(): List<Recording> = repository.findAll()
-
-    fun observe(): Flow<List<Recording>> = repository.observeAll()
+    fun observe(): kotlinx.coroutines.flow.Flow<List<Recording>> = repository.observeAll()
 }
 
 class DeleteRecordingUseCase @Inject constructor(
@@ -70,8 +66,8 @@ class DeleteRecordingUseCase @Inject constructor(
 
 class TranscribeRecordingUseCase @Inject constructor(
     private val repository: RecordingRepository,
-    private val sttAdapter: WhisperSttAdapter,
-    private val apiKey: String?
+    private val sttPort: SttPort,
+    @WhisperApiKey private val apiKey: String
 ) {
     suspend operator fun invoke(recordingId: UUID): Result<Recording> {
         val recording = repository.findById(recordingId)
@@ -80,11 +76,10 @@ class TranscribeRecordingUseCase @Inject constructor(
         val filePath = recording.filePath
             ?: return Result.failure(IllegalStateException("No file path for recording"))
 
-        // Update status to transcribing
         val transcribing = recording.copy(status = RecordingStatus.TRANSCRIBING)
         repository.save(transcribing)
 
-        return sttAdapter.transcribe(filePath, apiKey).map { transcript ->
+        return sttPort.transcribe(filePath, apiKey).map { transcript ->
             val updated = recording.copy(
                 status = RecordingStatus.TRANSCRIBED,
                 transcript = transcript
@@ -99,10 +94,10 @@ class TranscribeRecordingUseCase @Inject constructor(
 
 class AnalyzeTranscriptUseCase @Inject constructor(
     private val repository: RecordingRepository,
-    private val llmAdapter: GeminiLlmAdapter,
-    private val searchAdapter: SolutionSearchAdapter,
-    private val llmApiKey: String?,
-    private val searchApiKey: String?
+    private val llmPort: LlmPort,
+    private val searchPort: SearchPort,
+    @GeminiApiKey private val llmApiKey: String,
+    @SearchApiKey private val searchApiKey: String
 ) {
     suspend operator fun invoke(recordingId: UUID): Result<Recording> {
         val recording = repository.findById(recordingId)
@@ -115,23 +110,35 @@ class AnalyzeTranscriptUseCase @Inject constructor(
         val analyzing = recording.copy(status = RecordingStatus.ANALYZING)
         repository.save(analyzing)
 
-        val analysisResult = llmAdapter.analyze(transcript, llmApiKey)
+        val domainResult = llmPort.analyze(transcript, llmApiKey)
             .getOrElse { return Result.failure(it) }
+
+        // Map domain model to entity model
+        val entityResult = com.sonar.domain.entities.AnalysisResult(
+            coreQuestion = domainResult.coreQuestion,
+            background = domainResult.background,
+            solutions = domainResult.solutions.map {
+                com.sonar.domain.entities.Solution(it.title, it.summary, it.url)
+            },
+            rawLLMResponse = domainResult.rawLLMResponse
+        )
 
         // Step 2: Search for solutions
         val searching = recording.copy(
             status = RecordingStatus.SEARCHING,
-            analysisResult = analysisResult
+            analysisResult = entityResult
         )
         repository.save(searching)
 
-        val solutions = searchAdapter.search(
-            problem = analysisResult.coreQuestion,
-            background = analysisResult.background,
+        val rawSolutions: List<SolutionDomain> = searchPort.search(
+            problem = entityResult.coreQuestion,
+            background = entityResult.background,
             apiKey = searchApiKey
-        ).getOrElse { analysisResult.solutions }
+        ).getOrElse { entityResult.solutions.map { s -> SolutionDomain(s.title, s.summary, s.url) } }
 
-        val finalResult = analysisResult.copy(solutions = solutions)
+        val finalResult = entityResult.copy(
+            solutions = rawSolutions.map { Solution(it.title, it.summary, it.url) }
+        )
         val completed = recording.copy(
             status = RecordingStatus.COMPLETED,
             transcript = transcript,
@@ -149,12 +156,9 @@ class AnalyzeRecordingUseCase @Inject constructor(
     private val analyzeUseCase: AnalyzeTranscriptUseCase
 ) {
     suspend operator fun invoke(recordingId: UUID): Result<Recording> {
-        // Step 1: Transcribe
-        val transcribed = transcribeUseCase(recordingId).getOrElse {
+        transcribeUseCase(recordingId).getOrElse {
             return Result.failure(it)
         }
-
-        // Step 2: Analyze
         return analyzeUseCase(recordingId)
     }
 }

@@ -211,9 +211,9 @@ private fun RecordingItem(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline
                 )
-                if (recording.analysisResult != null) {
+                recording.analysisResult?.let { result ->
                     Text(
-                        text = recording.analysisResult.coreQuestion,
+                        text = result.coreQuestion,
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
