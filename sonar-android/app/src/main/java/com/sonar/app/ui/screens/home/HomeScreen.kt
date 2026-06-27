@@ -23,6 +23,7 @@ import java.util.*
 fun HomeScreen(
     onRecordingClick: (UUID) -> Unit,
     onAnalyzeClick: (UUID) -> Unit,
+    onSettingsClick: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -37,7 +38,12 @@ fun HomeScreen(
                 title = { Text("Sonar") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
+                ),
+                actions = {
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(Icons.Default.Settings, contentDescription = "设置")
+                    }
+                }
             )
         },
         floatingActionButton = {

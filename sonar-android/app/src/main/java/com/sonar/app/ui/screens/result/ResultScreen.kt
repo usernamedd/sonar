@@ -1,5 +1,7 @@
 package com.sonar.app.ui.screens.result
 
+import android.media.MediaPlayer
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -80,6 +83,13 @@ private fun AnalysisContent(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Audio playback section
+        recording.filePath?.let { path ->
+            item {
+                AudioPlaybackCard(filePath = path)
+            }
+        }
+
         item {
             SectionCard(
                 title = "核心问题",
@@ -193,6 +203,80 @@ private fun SolutionCard(solution: Solution) {
                     color = MaterialTheme.colorScheme.primary
                 )
             }
+        }
+    }
+}
+
+/**
+ * Audio playback card for recorded audio files.
+ */
+@Composable
+private fun AudioPlaybackCard(filePath: String) {
+    val context = LocalContext.current
+    var isPlaying by remember { mutableStateOf(false) }
+    var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    if (isPlaying) {
+                        mediaPlayer?.pause()
+                        isPlaying = false
+                    } else {
+                        if (mediaPlayer == null) {
+                            mediaPlayer = MediaPlayer().apply {
+                                try {
+                                    setDataSource(filePath)
+                                    prepare()
+                                    setOnCompletionListener {
+                                        isPlaying = false
+                                    }
+                                } catch (e: Exception) {
+                                    // File not found or unplayable
+                                }
+                            }
+                        }
+                        mediaPlayer?.start()
+                        isPlaying = true
+                    }
+                }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                contentDescription = if (isPlaying) "暂停" else "播放",
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.size(32.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = if (isPlaying) "正在播放录音..." else "点击播放录音",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (filePath.isNotBlank()) {
+                    Text(
+                        text = filePath.substringAfterLast("/"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            mediaPlayer?.release()
+            mediaPlayer = null
         }
     }
 }

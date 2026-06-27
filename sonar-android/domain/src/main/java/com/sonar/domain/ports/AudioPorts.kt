@@ -1,6 +1,7 @@
 package com.sonar.domain.ports
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
 import java.util.UUID
 
 /** Domain port for audio recording operations. */
@@ -34,6 +35,7 @@ data class AudioRecordingResult(
 )
 
 /** Domain model for analysis result (mirrors domain entity). */
+@Serializable
 data class AnalysisResultDomain(
     val coreQuestion: String,
     val background: String,
@@ -42,6 +44,7 @@ data class AnalysisResultDomain(
 )
 
 /** Domain model for a solution. */
+@Serializable
 data class SolutionDomain(
     val title: String,
     val summary: String,

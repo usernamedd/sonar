@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Android
+sonar-android/.gradle/
+sonar-android/build/
+sonar-android/app/build/
+sonar-android/local.properties
+sonar-android/.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Sonar user data
+sonar-recordings/
+sonar-reports/

@@ -1,5 +1,6 @@
 package com.sonar.domain.entities
 
+import kotlinx.serialization.Serializable
 import java.util.UUID
 
 /**
@@ -19,6 +20,7 @@ data class Recording(
     val analysisResult: AnalysisResult? = null
 )
 
+@Serializable
 data class AnalysisResult(
     val coreQuestion: String,
     val background: String,
@@ -26,6 +28,7 @@ data class AnalysisResult(
     val rawLLMResponse: String? = null
 )
 
+@Serializable
 data class Solution(
     val title: String,
     val summary: String,

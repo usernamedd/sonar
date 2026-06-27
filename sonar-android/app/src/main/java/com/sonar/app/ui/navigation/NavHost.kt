@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.sonar.app.ui.screens.home.HomeScreen
 import com.sonar.app.ui.screens.result.ResultScreen
+import com.sonar.app.ui.screens.settings.SettingsScreen
 
 @Composable
 fun SonarNavHost(
@@ -24,6 +25,9 @@ fun SonarNavHost(
                 },
                 onAnalyzeClick = { id ->
                     navController.navigate("result/${id}")
+                },
+                onSettingsClick = {
+                    navController.navigate("settings")
                 }
             )
         }
@@ -37,6 +41,12 @@ fun SonarNavHost(
             val recordingId = backStackEntry.arguments?.getString("recordingId") ?: return@composable
             ResultScreen(
                 recordingId = recordingId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("settings") {
+            SettingsScreen(
                 onBack = { navController.popBackStack() }
             )
         }
