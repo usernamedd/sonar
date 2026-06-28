@@ -35,7 +35,7 @@ fun ResultScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("分析结果") },
+                title = { Text("录音详情") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
@@ -53,15 +53,15 @@ fun ResultScreen(
                 uiState.isLoading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
-                uiState.recording?.analysisResult != null -> {
-                    AnalysisContent(
+                uiState.recording != null -> {
+                    RecordingDetailContent(
                         recording = uiState.recording!!,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
                 else -> {
                     Text(
-                        text = "暂无分析结果",
+                        text = "录音不存在",
                         modifier = Modifier.align(Alignment.Center),
                         style = MaterialTheme.typography.bodyLarge
                     )
@@ -72,62 +72,92 @@ fun ResultScreen(
 }
 
 @Composable
-private fun AnalysisContent(
+private fun RecordingDetailContent(
     recording: Recording,
     modifier: Modifier = Modifier
 ) {
-    val result = recording.analysisResult ?: return
+    val result = recording.analysisResult
 
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Audio playback section
+        // Audio playback section — always show when there's a file
         recording.filePath?.let { path ->
             item {
                 AudioPlaybackCard(filePath = path)
             }
         }
 
-        item {
-            SectionCard(
-                title = "核心问题",
-                icon = Icons.Default.QuestionMark,
-                iconTint = MaterialTheme.colorScheme.error
-            ) {
+        // Analysis results section — only show if analysis is available
+        if (result != null) {
+            item {
+                SectionCard(
+                    title = "核心问题",
+                    icon = Icons.Default.QuestionMark,
+                    iconTint = MaterialTheme.colorScheme.error
+                ) {
+                    Text(
+                        text = result.coreQuestion,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            }
+
+            item {
+                SectionCard(
+                    title = "背景上下文",
+                    icon = Icons.Default.Info,
+                    iconTint = MaterialTheme.colorScheme.secondary
+                ) {
+                    Text(
+                        text = result.background,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            item {
                 Text(
-                    text = result.coreQuestion,
-                    style = MaterialTheme.typography.bodyLarge
+                    text = "解决方案",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
             }
-        }
 
-        item {
-            SectionCard(
-                title = "背景上下文",
-                icon = Icons.Default.Info,
-                iconTint = MaterialTheme.colorScheme.secondary
-            ) {
-                Text(
-                    text = result.background,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            items(result.solutions) { solution ->
+                SolutionCard(solution = solution)
             }
-        }
-
-        item {
-            Text(
-                text = "解决方案",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
-
-        items(result.solutions) { solution ->
-            SolutionCard(solution = solution)
+        } else {
+            // Show hint when no analysis yet
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outline
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "录音尚未分析，请在首页点击分析按钮",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+            }
         }
     }
 }
