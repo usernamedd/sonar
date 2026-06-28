@@ -6,6 +6,8 @@ import com.sonar.application.usecases.*
 import com.sonar.domain.entities.Recording
 import com.sonar.domain.entities.RecordingStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -15,6 +17,7 @@ data class HomeUiState(
     val recordings: List<Recording> = emptyList(),
     val isLoading: Boolean = false,
     val currentRecordingId: UUID? = null,
+    val currentDurationMs: Long = 0L,
     val error: String? = null
 )
 
@@ -40,6 +43,8 @@ class HomeViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    private var timerJob: Job? = null
 
     init {
         observeRecordings()
@@ -77,11 +82,26 @@ class HomeViewModel @Inject constructor(
 
     fun stopRecording() {
         val currentId = _uiState.value.currentRecordingId ?: return
+        timerJob?.cancel()
+        timerJob = null
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isLoading = true, currentDurationMs = 0L) }
             val result = stopRecordingUseCase(currentId)
             _uiState.update { it.copy(isLoading = false, currentRecordingId = null) }
             onEvent(HomeEvent.StopRecording(result))
+        }
+    }
+
+    private fun startRecordingTimer() {
+        timerJob?.cancel()
+        timerJob = viewModelScope.launch {
+            val startTime = System.currentTimeMillis()
+            while (true) {
+                _uiState.update {
+                    it.copy(currentDurationMs = System.currentTimeMillis() - startTime)
+                }
+                delay(1000)
+            }
         }
     }
 
@@ -118,7 +138,8 @@ class HomeViewModel @Inject constructor(
     private fun handleStartResult(result: Result<Recording>) {
         result.fold(
             onSuccess = { recording ->
-                _uiState.update { it.copy(currentRecordingId = recording.id) }
+                _uiState.update { it.copy(currentRecordingId = recording.id, currentDurationMs = 0L) }
+                startRecordingTimer()
             },
             onFailure = { e ->
                 _uiState.update { it.copy(error = e.message) }

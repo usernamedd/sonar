@@ -116,6 +116,7 @@ fun HomeScreen(
                 RecordingList(
                     recordings = uiState.recordings,
                     currentRecordingId = uiState.currentRecordingId,
+                    currentDurationMs = uiState.currentDurationMs,
                     onItemClick = onRecordingClick,
                     onAnalyzeClick = onAnalyzeClick,
                     onDeleteClick = { viewModel.onEvent(HomeEvent.DeleteRecording(it)) }
@@ -164,6 +165,7 @@ private fun EmptyState() {
 private fun RecordingList(
     recordings: List<Recording>,
     currentRecordingId: UUID?,
+    currentDurationMs: Long,
     onItemClick: (UUID) -> Unit,
     onAnalyzeClick: (UUID) -> Unit,
     onDeleteClick: (UUID) -> Unit
@@ -174,9 +176,11 @@ private fun RecordingList(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(recordings, key = { it.id }) { recording ->
+            val liveDurationMs = if (recording.id == currentRecordingId) currentDurationMs else recording.duration
             RecordingItem(
                 recording = recording,
                 isRecording = recording.id == currentRecordingId,
+                liveDurationMs = liveDurationMs,
                 onClick = { onItemClick(recording.id) },
                 onAnalyzeClick = { onAnalyzeClick(recording.id) },
                 onDeleteClick = { onDeleteClick(recording.id) }
@@ -189,6 +193,7 @@ private fun RecordingList(
 private fun RecordingItem(
     recording: Recording,
     isRecording: Boolean,
+    liveDurationMs: Long,
     onClick: () -> Unit,
     onAnalyzeClick: () -> Unit,
     onDeleteClick: () -> Unit
@@ -235,7 +240,7 @@ private fun RecordingItem(
             // Info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = formatDuration(recording.duration),
+                    text = formatDuration(liveDurationMs),
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
