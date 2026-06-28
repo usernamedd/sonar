@@ -1,5 +1,9 @@
 package com.sonar.app.ui.screens.home
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,8 +14,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sonar.domain.entities.Recording
 import com.sonar.domain.entities.RecordingStatus
@@ -27,9 +33,30 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Permission launcher for RECORD_AUDIO
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            viewModel.startRecording()
+        } else {
+            viewModel.onEvent(HomeEvent.Error("需要录音权限才能使用录音功能"))
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.onEvent(HomeEvent.LoadRecordings)
+    }
+
+    // Show error snackbar
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.onEvent(HomeEvent.DismissError)
+        }
     }
 
     Scaffold(
@@ -46,13 +73,21 @@ fun HomeScreen(
                 }
             )
         },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
                     if (uiState.currentRecordingId != null) {
                         viewModel.stopRecording()
                     } else {
-                        viewModel.startRecording()
+                        if (ContextCompat.checkSelfPermission(
+                                context, Manifest.permission.RECORD_AUDIO
+                            ) == PackageManager.PERMISSION_GRANTED
+                        ) {
+                            viewModel.startRecording()
+                        } else {
+                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
                     }
                 },
                 containerColor = if (uiState.currentRecordingId != null)
@@ -92,13 +127,6 @@ fun HomeScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
-        }
-    }
-
-    // Error snackbar
-    uiState.error?.let { error ->
-        LaunchedEffect(error) {
-            // Show snackbar or toast
         }
     }
 }

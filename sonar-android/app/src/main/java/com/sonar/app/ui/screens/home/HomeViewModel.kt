@@ -25,6 +25,7 @@ sealed class HomeEvent {
     data class DeleteRecording(val id: UUID) : HomeEvent()
     data class AnalyzeRecording(val id: UUID) : HomeEvent()
     data class SelectRecording(val id: UUID) : HomeEvent()
+    data class Error(val message: String) : HomeEvent()
     object DismissError : HomeEvent()
 }
 
@@ -60,6 +61,7 @@ class HomeViewModel @Inject constructor(
             is HomeEvent.DeleteRecording -> delete(event.id)
             is HomeEvent.AnalyzeRecording -> analyze(event.id)
             is HomeEvent.SelectRecording -> selectRecording(event.id)
+            is HomeEvent.Error -> _uiState.update { it.copy(error = event.message) }
             is HomeEvent.DismissError -> _uiState.update { it.copy(error = null) }
         }
     }
