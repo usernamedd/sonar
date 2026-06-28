@@ -214,7 +214,33 @@ private fun SolutionCard(solution: Solution) {
 private fun AudioPlaybackCard(filePath: String) {
     val context = LocalContext.current
     var isPlaying by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isPrepared by remember { mutableStateOf(false) }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+
+    // Initialize MediaPlayer asynchronously
+    LaunchedEffect(filePath) {
+        try {
+            val player = MediaPlayer().apply {
+                setDataSource(filePath)
+                setOnPreparedListener {
+                    isPrepared = true
+                }
+                setOnCompletionListener {
+                    isPlaying = false
+                }
+                setOnErrorListener { _, what, extra ->
+                    errorMessage = "播放失败 (what=$what, extra=$extra)"
+                    isPlaying = false
+                    true
+                }
+                prepareAsync()
+            }
+            mediaPlayer = player
+        } catch (e: Exception) {
+            errorMessage = "无法加载音频文件: ${e.message}"
+        }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -226,48 +252,76 @@ private fun AudioPlaybackCard(filePath: String) {
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable {
+                    errorMessage?.let { return@clickable }
+                    if (!isPrepared) return@clickable
+
                     if (isPlaying) {
                         mediaPlayer?.pause()
                         isPlaying = false
                     } else {
-                        if (mediaPlayer == null) {
-                            mediaPlayer = MediaPlayer().apply {
-                                try {
-                                    setDataSource(filePath)
-                                    prepare()
-                                    setOnCompletionListener {
-                                        isPlaying = false
-                                    }
-                                } catch (e: Exception) {
-                                    // File not found or unplayable
-                                }
+                        val player = mediaPlayer
+                        if (player != null) {
+                            if (player.isPlaying) {
+                                player.pause()
+                                isPlaying = false
+                            } else {
+                                player.seekTo(player.currentPosition)
+                                player.start()
+                                isPlaying = true
                             }
                         }
-                        mediaPlayer?.start()
-                        isPlaying = true
                     }
                 }
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                contentDescription = if (isPlaying) "暂停" else "播放",
-                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                modifier = Modifier.size(32.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = if (isPlaying) "正在播放录音..." else "点击播放录音",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                if (filePath.isNotBlank()) {
-                    Text(
-                        text = filePath.substringAfterLast("/"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+            when {
+                errorMessage != null -> {
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = "播放失败",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(32.dp)
                     )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = errorMessage ?: "播放失败",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                !isPrepared -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "准备音频...",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                else -> {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (isPlaying) "暂停" else "播放",
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = if (isPlaying) "正在播放录音..." else "点击播放录音",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        if (filePath.isNotBlank()) {
+                            Text(
+                                text = filePath.substringAfterLast("/"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
                 }
             }
         }
